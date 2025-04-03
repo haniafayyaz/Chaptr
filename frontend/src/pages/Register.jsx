@@ -4,6 +4,7 @@ import "../styles/register.css";
 
 const Register = () => {
   const [name, setName] = useState("");
+  const [username, setUsername] = useState(""); // New state for username
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -21,7 +22,7 @@ const Register = () => {
   return (
     <div className="register-container">
       <div className="register-card">
-        <h1 className="app-name">Chaptr</h1>  {/* App Name inside the box */}
+        <h1 className="app-name">Chaptr</h1> {/* App Name inside the box */}
         <h2>Create an account</h2>
         <p>Enter your information to create an account</p>
 
@@ -35,6 +36,17 @@ const Register = () => {
               placeholder="John Doe"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="input-group">
+            <label>Username</label> {/* New username field */}
+            <input
+              type="text"
+              placeholder="john_doe"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
             />
           </div>
