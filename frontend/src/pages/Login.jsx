@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom"; // Import useNavigate instead of useHistory
 import axios from "axios"; // Import axios
 import "../styles/login.css"; // Ensure correct import
 
@@ -9,8 +9,11 @@ const Login = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const navigate = useNavigate(); // Use useNavigate for redirecting after login
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!email || !password) {
       setError("Please fill in all fields");
       return;
@@ -25,11 +28,16 @@ const Login = () => {
       });
 
       // If login is successful, handle the response (you can store the token, for example)
-      console.log(response.data);
       alert("Login successful!");
 
-      // You can store the token in localStorage or state
+      // Store the token in localStorage (or you could store it in state or a context)
       localStorage.setItem('token', response.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data.user)); // Store user data if needed
+
+      console.log(localStorage.getItem('user'));
+
+      // Redirect to a different page (e.g., dashboard, home) after successful login
+      navigate("/dashboard"); // Change to the route you want to navigate to after login
 
     } catch (error) {
       setError(error.response ? error.response.data.message : "Server error. Please try again.");

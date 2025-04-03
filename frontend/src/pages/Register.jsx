@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom"; // Import useNavigate instead of useHistory
 import axios from "axios"; // Import axios
-import "../styles/register.css";
+import "../styles/register.css"; // Ensure correct import
 
 const Register = () => {
   const [name, setName] = useState("");
@@ -18,6 +18,7 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Check if passwords match
     if (password !== confirmPassword) {
       setPasswordError("Passwords do not match");
       return;
@@ -28,6 +29,7 @@ const Register = () => {
     try {
       const response = await axios.post("http://localhost:5000/auth/register", {
         name,
+        username, // Sending username to the backend
         email,
         password,
       });

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import "../styles/dashboard.css"; 
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import "../styles/dashboard.css";
 
 const Dashboard = () => {
   // State for books data
@@ -57,6 +57,18 @@ const Dashboard = () => {
   const [showModal, setShowModal] = useState(false);
   const [currentBook, setCurrentBook] = useState(null);
   const [pagesInput, setPagesInput] = useState('');
+  
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      setUser(JSON.parse(userData));
+    } else {
+      navigate('/login');
+    }
+  }, [navigate]);
 
   const handleUpdateClick = (bookId) => {
     setCurrentBook(bookId);
@@ -72,7 +84,6 @@ const Dashboard = () => {
       const updatedBooks = {...prevBooks};
       const book = updatedBooks[currentBook];
       
-      // Calculate new progress
       const newPagesRead = Math.min(book.pagesRead + pagesNum, book.totalPages);
       const newProgress = Math.round((newPagesRead / book.totalPages) * 100);
       
@@ -82,7 +93,6 @@ const Dashboard = () => {
         progress: newProgress
       };
       
-      // Update stats if book is completed
       if (newProgress === 100 && book.progress < 100) {
         setStats(prev => ({
           ...prev,
@@ -114,13 +124,15 @@ const Dashboard = () => {
     }));
   };
 
-  // Filter books by status
   const currentlyReadingBooks = Object.values(books).filter(book => book.status === 'reading');
   const wantToReadBooks = Object.values(books).filter(book => book.status === 'wantToRead');
 
+  if (!user) {
+    return <div>Loading...</div>;
+  }
+
   return (
     <div className="dashboard-container">
-      {/* Modal for updating progress */}
       {showModal && (
         <div className="modal-overlay">
           <div className="modal">
@@ -144,7 +156,6 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Sidebar Navigation */}
       <div className="sidebar">
         <h1 className="logo">BookTrack</h1>
         <nav className="nav-menu">
@@ -155,14 +166,12 @@ const Dashboard = () => {
         </nav>
       </div>
 
-      {/* Main Content */}
       <div className="main-content">
         <header className="header">
-          <h2>Welcome back, John Doe!</h2>
-          <div className="user-avatar">JD</div>
+          <h2>Welcome back, {user.name}!</h2>
+          <div className="user-avatar">{user.name.split(' ').map(n => n[0]).join('')}</div>
         </header>
 
-        {/* Stats Cards */}
         <div className="stats-grid">
           <div className="stat-card">
             <div className="stat-icon">📚</div>
@@ -206,12 +215,9 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Books Sections */}
         <div className="books-container">
-          {/* Currently Reading */}
           <div className="books-section">
             <h3>Currently Reading</h3>
-            
             {currentlyReadingBooks.map(book => (
               <div key={book.id} className="book-card">
                 <div className="book-cover" style={{ background: book.coverColor }}>
@@ -243,10 +249,8 @@ const Dashboard = () => {
             ))}
           </div>
 
-          {/* Want to Read */}
           <div className="books-section">
             <h3>Want to Read</h3>
-            
             {wantToReadBooks.map(book => (
               <div key={book.id} className="book-card">
                 <div className="book-cover" style={{ background: book.coverColor }}>
@@ -267,7 +271,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Recent Activity */}
         <div className="activity-section">
           <div className="section-header">
             <h3>Recent Activity</h3>
