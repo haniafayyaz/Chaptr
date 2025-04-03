@@ -1,22 +1,48 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom"; // Import useNavigate instead of useHistory
+import axios from "axios"; // Import axios
 import "../styles/register.css";
 
 const Register = () => {
   const [name, setName] = useState("");
-  const [username, setUsername] = useState(""); // New state for username
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState(""); // New state for username
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [error, setError] = useState(""); // To display errors
+  const [loading, setLoading] = useState(false); // Loading state
 
-  const handleSubmit = (e) => {
+  const navigate = useNavigate(); // Use useNavigate instead of useHistory
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (password !== confirmPassword) {
       setPasswordError("Passwords do not match");
       return;
     }
-    alert("Account created successfully!");
+
+    setLoading(true); // Set loading to true while making the request
+
+    try {
+      const response = await axios.post("http://localhost:5000/auth/register", {
+        name,
+        email,
+        password,
+      });
+
+      console.log(response.data); // You can check the response
+      alert("Account created successfully!");
+
+      // Redirect after successful registration using navigate
+      navigate("/login");
+
+    } catch (error) {
+      setError(error.response ? error.response.data.message : "Server error. Please try again.");
+    }
+
+    setLoading(false); // Set loading to false after the request is done
   };
 
   return (
@@ -27,6 +53,7 @@ const Register = () => {
         <p>Enter your information to create an account</p>
 
         {passwordError && <div className="error-alert">{passwordError}</div>}
+        {error && <div className="error-alert">{error}</div>} {/* Display other errors */}
 
         <form onSubmit={handleSubmit}>
           <div className="input-group">
@@ -82,7 +109,9 @@ const Register = () => {
             />
           </div>
 
-          <button type="submit">Create account</button>
+          <button type="submit" disabled={loading}>
+            {loading ? "Creating account..." : "Create account"}
+          </button>
         </form>
 
         <div className="login-link">

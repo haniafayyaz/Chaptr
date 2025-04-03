@@ -1,19 +1,41 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import axios from "axios"; // Import axios
 import "../styles/login.css"; // Ensure correct import
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) {
       setError("Please fill in all fields");
       return;
     }
-    alert("Login successful!");
+
+    setLoading(true); // Set loading to true while making the request
+
+    try {
+      const response = await axios.post("http://localhost:5000/auth/login", {
+        email,
+        password,
+      });
+
+      // If login is successful, handle the response (you can store the token, for example)
+      console.log(response.data);
+      alert("Login successful!");
+
+      // You can store the token in localStorage or state
+      localStorage.setItem('token', response.data.token);
+
+    } catch (error) {
+      setError(error.response ? error.response.data.message : "Server error. Please try again.");
+    }
+
+    setLoading(false); // Set loading to false after the request is done
   };
 
   return (
@@ -50,7 +72,9 @@ const Login = () => {
               />
             </div>
 
-            <button type="submit" className="button">Login</button>
+            <button type="submit" className="button" disabled={loading}>
+              {loading ? "Logging in..." : "Login"}
+            </button>
           </form>
 
           <div className="signup-text">
@@ -60,6 +84,6 @@ const Login = () => {
       </div>
     </div>
   );
-}
+};
 
 export default Login;
