@@ -1,143 +1,188 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import "../styles/dashboard.css";
+import axios from 'axios';
 
 const Dashboard = () => {
-  // State for books data
   const [books, setBooks] = useState({
-    'theMidnightLibrary': {
-      id: 'theMidnightLibrary',
-      title: 'The Midnight Library',
-      author: 'Matt Haig',
-      progress: 45,
-      totalPages: 300,
-      pagesRead: 135,
-      coverColor: '#FF9AA2',
-      status: 'reading'
-    },
-    'projectHailMary': {
-      id: 'projectHailMary',
-      title: 'Project Hail Mary',
-      author: 'Andy Weir',
-      progress: 35,
-      totalPages: 400,
-      pagesRead: 140,
-      coverColor: '#FFB7B2',
-      status: 'reading'
-    },
-    'dune': {
-      id: 'dune',
-      title: 'Dune',
-      author: 'Frank Herbert',
-      progress: 0,
-      totalPages: 412,
-      pagesRead: 0,
-      coverColor: '#B5EAD7',
-      status: 'wantToRead'
-    },
-    'atomicHabits': {
-      id: 'atomicHabits',
-      title: 'Atomic Habits',
-      author: 'James Clear',
-      progress: 0,
-      totalPages: 320,
-      pagesRead: 0,
-      coverColor: '#C7CEEA',
-      status: 'wantToRead'
-    }
+    reading: [],
+    wantToRead: []
   });
-
   const [stats, setStats] = useState({
-    booksRead: 12,
-    pagesRead: 3542,
-    readingStreak: 7,
-    goalProgress: 65
+    booksRead: 0,
+    pagesRead: 0,
+    readingStreak: 0,
+    goalProgress: 0
   });
-
   const [showModal, setShowModal] = useState(false);
   const [currentBook, setCurrentBook] = useState(null);
   const [pagesInput, setPagesInput] = useState('');
+  const [loading, setLoading] = useState(true);
   
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      setUser(JSON.parse(userData));
-    } else {
-      navigate('/login');
-    }
+    const fetchUserData = async () => {
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+        
+        try {
+          const apiUrl = process.env.NODE_ENV === 'development'
+            ? `http://localhost:5000/api/reading-list/get-reading-list/${parsedUser.username}`
+            : `/api/reading-list/get-reading-list/${parsedUser.username}`;
+          const readingListRes = await axios.get(apiUrl);
+          
+          console.log('Reading List Response:', readingListRes.data);
+
+          const readingListData = Array.isArray(readingListRes.data)
+            ? readingListRes.data
+            : Array.isArray(readingListRes.data.books)
+              ? readingListRes.data.books
+              : [];
+
+          console.log('Processed Reading List Data:', readingListData);
+
+          const readingBooks = readingListData
+            .filter(book => book.status === 'reading')
+            .map(book => ({
+              id: book.bookId,
+              title: book.bookTitle,
+              author: book.bookAuthor,
+              coverImage: book.coverImage,
+              progress: book.progress || 0,
+              totalPages: book.totalPages || 0,
+              pagesRead: book.pagesRead || 0
+            }));
+
+          const wantToReadBooks = readingListData
+            .filter(book => book.status === 'wantToRead')
+            .map(book => ({
+              id: book.bookId,
+              title: book.bookTitle,
+              author: book.bookAuthor,
+              coverImage: book.coverImage,
+              progress: 0,
+              totalPages: book.totalPages || 0,
+              pagesRead: 0
+            }));
+
+          console.log('Reading Books:', readingBooks);
+          console.log('Want to Read Books:', wantToReadBooks);
+
+          setBooks({
+            reading: readingBooks,
+            wantToRead: wantToReadBooks
+          });
+          setLoading(false);
+        } catch (error) {
+          console.error("Error fetching data:", error);
+          setLoading(false);
+        }
+      } else {
+        navigate('/login');
+      }
+    };
+
+    fetchUserData();
   }, [navigate]);
 
-  const handleUpdateClick = (bookId) => {
-    setCurrentBook(bookId);
+  const handleUpdateClick = (book) => {
+    setCurrentBook(book);
     setPagesInput('');
     setShowModal(true);
   };
 
-  const handleProgressUpdate = () => {
+  const handleProgressUpdate = async () => {
     if (!pagesInput || isNaN(pagesInput)) return;
     
     const pagesNum = parseInt(pagesInput);
-    setBooks(prevBooks => {
-      const updatedBooks = {...prevBooks};
-      const book = updatedBooks[currentBook];
-      
-      const newPagesRead = Math.min(book.pagesRead + pagesNum, book.totalPages);
-      const newProgress = Math.round((newPagesRead / book.totalPages) * 100);
-      
-      updatedBooks[currentBook] = {
-        ...book,
-        pagesRead: newPagesRead,
-        progress: newProgress
+    try {
+      const updateUrl = process.env.NODE_ENV === 'development'
+        ? 'http://localhost:5000/api/reading-list/update-progress'
+        : '/api/reading-list/update-progress';
+      const response = await axios.put(updateUrl, {
+        username: user.username,
+        bookId: currentBook.id,
+        pagesRead: pagesNum
+      });
+
+      console.log('Progress Update Response:', response.data);
+
+      setBooks(prev => ({
+        ...prev,
+        reading: prev.reading.map(book => 
+          book.id === currentBook.id ? response.data.updatedBook : book
+        )
+      }));
+      setShowModal(false);
+    } catch (error) {
+      console.error("Error updating progress:", error);
+    }
+  };
+
+  const startReading = async (bookId) => {
+    try {
+      const bookToStart = books.wantToRead.find(b => b.id === bookId);
+      if (!bookToStart) {
+        console.error("Book not found in wantToRead:", bookId);
+        return;
+      }
+      console.log('Starting book:', bookToStart);
+
+      const updateUrl = process.env.NODE_ENV === 'development'
+        ? 'http://localhost:5000/api/reading-list/update-progress'
+        : '/api/reading-list/update-progress';
+      const response = await axios.put(updateUrl, {
+        username: user.username,
+        bookId: bookToStart.id,
+        pagesRead: 0
+      });
+
+      console.log('Start Reading Response:', response.data);
+
+      const updatedBook = {
+        id: response.data.updatedBook.bookId,
+        title: response.data.updatedBook.bookTitle,
+        author: response.data.updatedBook.bookAuthor,
+        coverImage: response.data.updatedBook.coverImage,
+        progress: response.data.updatedBook.progress || 0,
+        totalPages: response.data.updatedBook.totalPages || 0,
+        pagesRead: response.data.updatedBook.pagesRead || 0
       };
-      
-      if (newProgress === 100 && book.progress < 100) {
-        setStats(prev => ({
-          ...prev,
-          booksRead: prev.booksRead + 1,
-          pagesRead: prev.pagesRead + (book.totalPages - book.pagesRead)
-        }));
-      } else if (newProgress < 100) {
-        setStats(prev => ({
-          ...prev,
-          pagesRead: prev.pagesRead + pagesNum
-        }));
-      }
-      
-      return updatedBooks;
-    });
-    
-    setShowModal(false);
-  };
 
-  const startReading = (bookId) => {
-    setBooks(prevBooks => ({
-      ...prevBooks,
-      [bookId]: {
-        ...prevBooks[bookId],
-        progress: 1,
-        pagesRead: 1,
-        status: 'reading'
-      }
-    }));
+      setBooks(prev => {
+        const newReading = [...prev.reading, updatedBook];
+        const newWantToRead = prev.wantToRead.filter(b => b.id !== bookId);
+        console.log('Updated Reading:', newReading);
+        console.log('Updated Want to Read:', newWantToRead);
+        return {
+          reading: newReading,
+          wantToRead: newWantToRead
+        };
+      });
+    } catch (error) {
+      console.error("Error starting to read book:", error.response ? error.response.data : error);
+    }
   };
-
-  const currentlyReadingBooks = Object.values(books).filter(book => book.status === 'reading');
-  const wantToReadBooks = Object.values(books).filter(book => book.status === 'wantToRead');
 
   if (!user) {
     return <div>Loading...</div>;
   }
 
+  if (loading) {
+    return <div>Loading your books...</div>;
+  }
+
   return (
     <div className="dashboard-container">
-      {showModal && (
+      {showModal && currentBook && (
         <div className="modal-overlay">
           <div className="modal">
-            <h3>Update Progress for {currentBook && books[currentBook].title}</h3>
-            <p>Current progress: {currentBook && books[currentBook].progress}%</p>
+            <h3>Update Progress for {currentBook.title}</h3>
+            <p>Current progress: {currentBook.progress}%</p>
             <div className="input-group">
               <label>Pages read since last update:</label>
               <input
@@ -162,7 +207,7 @@ const Dashboard = () => {
           <Link to="/books" className="nav-item active">My Books</Link>
           <Link to="/clubs" className="nav-item">Book Clubs</Link>
           <Link to="/challenges" className="nav-item">Challenges</Link>
-          <Link to="/discover" className="nav-item">Discover</Link>
+          <Link to="/books" className="nav-item">Discover</Link>
         </nav>
       </div>
 
@@ -185,7 +230,7 @@ const Dashboard = () => {
           <div className="stat-card">
             <div className="stat-icon">📖</div>
             <div className="stat-info">
-              <h3>{stats.pagesRead.toLocaleString()}</h3>
+              <h3>{(stats.pagesRead || 0).toLocaleString()}</h3>
               <p>Pages Read</p>
               <span className="stat-trend">+342 from last month</span>
             </div>
@@ -218,56 +263,68 @@ const Dashboard = () => {
         <div className="books-container">
           <div className="books-section">
             <h3>Currently Reading</h3>
-            {currentlyReadingBooks.map(book => (
-              <div key={book.id} className="book-card">
-                <div className="book-cover" style={{ background: book.coverColor }}>
-                  {book.title.split(' ').map(word => word[0]).join('')}
-                </div>
-                <div className="book-details">
-                  <h4>{book.title}</h4>
-                  <p>{book.author}</p>
-                  <div className="book-progress">
-                    <div className="progress-bar">
-                      <div 
-                        className="progress-fill" 
-                        style={{ width: `${book.progress}%` }}
-                      ></div>
-                    </div>
-                    <span>{book.progress}%</span>
+            {books.reading.length > 0 ? (
+              books.reading.map(book => (
+                <div key={book.id} className="book-card">
+                  <div className="book-cover" style={{ backgroundImage: `url(${book.coverImage})` }}>
+                    {!book.coverImage && book.title.split(' ').map(word => word[0]).join('')}
                   </div>
-                  <p className="pages-info">
-                    {book.pagesRead} of {book.totalPages} pages read
-                  </p>
-                  <button 
-                    onClick={() => handleUpdateClick(book.id)} 
-                    className="update-btn"
-                  >
-                    Update Progress
-                  </button>
+                  <div className="book-details">
+                    <h4>{book.title}</h4>
+                    <p>{book.author}</p>
+                    {book.progress > 0 && (
+                      <>
+                        <div className="book-progress">
+                          <div className="progress-bar">
+                            <div 
+                              className="progress-fill" 
+                              style={{ width: `${book.progress}%` }}
+                            ></div>
+                          </div>
+                          <span>{book.progress}%</span>
+                        </div>
+                        <p className="pages-info">
+                          {book.pagesRead} of {book.totalPages} pages read
+                        </p>
+                      </>
+                    )}
+                    <button 
+                      onClick={() => handleUpdateClick(book)} 
+                      className="update-btn"
+                    >
+                      Update Progress
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p>You're not currently reading any books</p>
+            )}
           </div>
 
           <div className="books-section">
             <h3>Want to Read</h3>
-            {wantToReadBooks.map(book => (
-              <div key={book.id} className="book-card">
-                <div className="book-cover" style={{ background: book.coverColor }}>
-                  {book.title.split(' ').map(word => word[0]).join('')}
+            {books.wantToRead.length > 0 ? (
+              books.wantToRead.map(book => (
+                <div key={book.id} className="book-card">
+                  <div className="book-cover" style={{ backgroundImage: `url(${book.coverImage})` }}>
+                    {!book.coverImage && book.title.split(' ').map(word => word[0]).join('')}
+                  </div>
+                  <div className="book-details">
+                    <h4>{book.title || 'Untitled'}</h4>
+                    <p>{book.author || 'Unknown Author'}</p>
+                    <button 
+                      onClick={() => startReading(book.id)} 
+                      className="start-reading-btn"
+                    >
+                      Start Reading
+                    </button>
+                  </div>
                 </div>
-                <div className="book-details">
-                  <h4>{book.title}</h4>
-                  <p>{book.author}</p>
-                  <button 
-                    onClick={() => startReading(book.id)} 
-                    className="start-reading-btn"
-                  >
-                    Start Reading
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p>Your want to read list is empty</p>
+            )}
           </div>
         </div>
 
@@ -281,8 +338,8 @@ const Dashboard = () => {
             <div className="activity-item">
               <div className="activity-icon">📖</div>
               <div className="activity-content">
-                <h4>The Midnight Library</h4>
-                <p>Read 25 pages</p>
+                <h4>Updated progress</h4>
+                <p>Read 25 pages of {books.reading[0]?.title || 'your book'}</p>
                 <span className="activity-time">2 hours ago</span>
               </div>
             </div>
@@ -290,17 +347,9 @@ const Dashboard = () => {
             <div className="activity-item">
               <div className="activity-icon">⭐</div>
               <div className="activity-content">
-                <h4>Dune</h4>
-                <p>Gave 5 stars</p>
+                <h4>Added to list</h4>
+                <p>{books.wantToRead[0]?.title || 'New book'} added to want to read</p>
                 <span className="activity-time">Yesterday</span>
-              </div>
-            </div>
-
-            <div className="activity-item">
-              <div className="activity-icon">👥</div>
-              <div className="activity-content">
-                <h4>Joined Sci-FI Lovers book club</h4>
-                <span className="activity-time">3 days ago</span>
               </div>
             </div>
           </div>

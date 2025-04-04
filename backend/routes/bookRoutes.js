@@ -1,12 +1,14 @@
-// backend/routes/books.js
 const express = require('express');
 const router = express.Router();
-const { fetchBooks, getAllBooks } = require('../controllers/books');
+const { fetchBooks, getAllBooks, getBookById } = require('../controllers/books');
 
-// Fetch books from Open Library and store in database
+// Route to fetch books from Gutenberg API and store them in the database
 router.get('/fetch', fetchBooks);
 
-// Get all books
+// Route to get all books from the database
 router.get('/', getAllBooks);
+
+// Route to get a single book by ID
+router.get('/:id', getBookById);
 
 module.exports = router;
